@@ -5,10 +5,39 @@
 #include <ctime>
 #include <algorithm>
 using namespace std;
+class AttackStrategy {
+public:
+    virtual void attack() const = 0;
+    virtual ~AttackStrategy() = default;
+};
+class MissileAttack : public AttackStrategy {
+public:
+    void attack() const override {
+        cout << "Запуск баллистических ракет!\n";
+    }
+};
 
+class TorpedoAttack : public AttackStrategy {
+public:
+    void attack() const override {
+        cout << "Пуск торпед!\n";
+    }
+};
 class Sub {
+protected:
+    unique_ptr<AttackStrategy> attackStrategy;
 public:
     virtual void describe() const = 0;
+    void setAttackStrategy(unique_ptr<AttackStrategy> strategy) {
+        attackStrategy = move(strategy);
+    }
+    void performAttack() const {
+        if (attackStrategy) {
+            attackStrategy->attack();
+        } else {
+            cout << "Атака не назначена!\n";
+        }
+    }
     virtual ~Sub() = default;
 };
 class NuclearSub : public Sub {
@@ -20,6 +49,7 @@ public:
     }
     int getMissiles() const { return missiles; }
 };
+
 class DieselSub : public Sub {
     int torpedoes;
 public:
@@ -28,6 +58,37 @@ public:
         cout << "Дизельная подлодка с " << torpedoes << " торпедами\n";
     }
     int getTorpedoes() const { return torpedoes; }
+};
+class Mission {
+public:
+    void executeMission() {
+        prepare();
+        navigate();
+        engage();
+        retreat();
+    }
+    virtual ~Mission() = default;
+
+protected:
+    virtual void prepare() = 0;
+    virtual void navigate() = 0;
+    virtual void engage() = 0;
+    virtual void retreat() = 0;
+};
+class CombatMission : public Mission {
+protected:
+    void prepare() override {
+        cout << ">> Боевая миссия: подготовка оружия\n";
+    }
+    void navigate() override {
+        cout << ">> Боевая миссия: выход на боевую позицию\n";
+    }
+    void engage() override {
+        cout << ">> Боевая миссия: атака цели\n";
+    }
+    void retreat() override {
+        cout << ">> Боевая миссия: отход на базу\n";
+    }
 };
 class IIterator {
 public:
@@ -156,14 +217,35 @@ void demonstrateContainer(const IContainer& container) {
         limitIt->next()->describe();
     }
 }
+void demonstrateAll(const SubVector& subs) {
+    cout << "\n=== Демонстрация стратегий атаки ===\n";
+    auto it = subs.GetIterator();
+    while (it->hasNext()) {
+        Sub* sub = it->next();
+        sub->describe();
+        sub->performAttack();
+    }
+
+    cout << "\n=== Демонстрация шаблонного метода ===\n";
+    Mission* mission = new CombatMission();
+    mission->executeMission();
+    delete mission;
+}
 int main() {
     srand(time(0));
     setlocale(LC_ALL, "rus");
-    SubVector vectorSubs;
-    for (int i = 0; i < 5; i++) {
-        vectorSubs.add(make_unique<NuclearSub>(rand() % 5 + 2));
-        vectorSubs.add(make_unique<DieselSub>(rand() % 3 + 1));
+    SubVector subs;
+    for (int i = 0; i < 3; i++) {
+        auto nuclear = make_unique<NuclearSub>(rand() % 5 + 2);
+        nuclear->setAttackStrategy(make_unique<MissileAttack>());
+        subs.add(move(nuclear));
+
+        auto diesel = make_unique<DieselSub>(rand() % 3 + 1);
+        diesel->setAttackStrategy(make_unique<TorpedoAttack>());
+        subs.add(move(diesel));
     }
-    demonstrateContainer(vectorSubs);
+    demonstrateAll(subs);
+    demonstrateContainer(subs);
+
     return 0;
 }
